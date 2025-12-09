@@ -1,5 +1,4 @@
 import express from 'express';
-import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { env } from './config/env.js';
@@ -10,16 +9,6 @@ import driverRoutes from './routes/driver.routes.js';
 
 const app = express();
 
-// Support multiple comma-separated origins for dev (e.g., admin + driver apps)
-const corsOrigins = env.corsOrigin
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
-app.use(
-  cors({
-    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins
-  })
-);
 app.use(helmet());
 app.use(express.json());
 app.use(morgan('dev'));
