@@ -1,4 +1,5 @@
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
+import { useEffect, useMemo } from 'react';
+import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -13,19 +14,40 @@ L.Icon.Default.mergeOptions({
 
 const defaultCenter = [12.9716, 77.5946]; // Bangalore fallback
 
+// Component to update map bounds when locations change
+function MapUpdater({ locations }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (locations && locations.length > 0) {
+      const bounds = L.latLngBounds(
+        locations.map((loc) => [loc.lat, loc.lng])
+      );
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    }
+  }, [locations, map]);
+
+  return null;
+}
+
 export default function MapView({ locations }) {
-  const center = locations?.[0]
-    ? [locations[0].lat, locations[0].lng]
-    : defaultCenter;
+  const center = useMemo(() => {
+    return locations?.[0] ? [locations[0].lat, locations[0].lng] : defaultCenter;
+  }, [locations]);
 
   return (
-    <MapContainer center={center} zoom={12} className="h-full w-full rounded">
+    <MapContainer
+      center={center}
+      zoom={12}
+      className="h-full w-full rounded"
+    >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      <MapUpdater locations={locations} />
       {(locations || []).map((loc) => (
-        <Marker key={loc._id} position={[loc.lat, loc.lng]}>
+        <Marker key={loc._id || `${loc.lat}-${loc.lng}`} position={[loc.lat, loc.lng]}>
           <Popup>
             <div className="text-sm">
               <div className="font-semibold">{loc.busNumber || 'Unassigned'}</div>

@@ -15,7 +15,7 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-const DashboardPage = ({ drivers, locations }) => {
+const DashboardPage = ({ drivers, locations, onRefresh, lastUpdate, error }) => {
   const activeDrivers = drivers.filter((d) => d.isActive).length;
   return (
     <div className="space-y-6">
@@ -24,6 +24,25 @@ const DashboardPage = ({ drivers, locations }) => {
         activeDrivers={activeDrivers}
         trackedBuses={locations.length}
       />
+      {(error || lastUpdate) && (
+        <div className="bg-white shadow rounded-lg p-3 flex items-center justify-between">
+          <div className="text-sm">
+            {error ? (
+              <span className="text-red-600">{error}</span>
+            ) : (
+              <span className="text-gray-600">
+                Last updated: {lastUpdate?.toLocaleTimeString() || 'Never'}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={onRefresh}
+            className="text-xs px-3 py-1 bg-indigo-100 text-indigo-800 rounded hover:bg-indigo-200"
+          >
+            Refresh Now
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="bg-white shadow rounded-lg p-4">
           <h3 className="font-semibold mb-4">Drivers</h3>
@@ -55,14 +74,28 @@ const DriversPage = ({ drivers, refreshDrivers }) => {
   );
 };
 
-const MapPage = ({ locations }) => (
+const MapPage = ({ locations, onRefresh, lastUpdate, error }) => (
   <div className="bg-white shadow rounded-lg p-4">
-    <div className="flex items-center justify-between mb-4">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
       <div>
         <h3 className="font-semibold">Live Bus Locations</h3>
         <p className="text-sm text-gray-500">Auto-refreshes every 10 seconds</p>
+        {lastUpdate && (
+          <p className="text-xs text-gray-400">
+            Last updated: {lastUpdate.toLocaleTimeString()}
+          </p>
+        )}
+        {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
-      <span className="text-sm text-gray-600">Buses: {locations.length}</span>
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-gray-600">Buses: {locations.length}</span>
+        <button
+          onClick={onRefresh}
+          className="text-xs px-3 py-1 bg-indigo-100 text-indigo-800 rounded hover:bg-indigo-200"
+        >
+          Refresh
+        </button>
+      </div>
     </div>
     <div className="h-[520px]">
       <MapView locations={locations} />
@@ -76,13 +109,17 @@ export default function App() {
   const [drivers, setDrivers] = useState([]);
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [error, setError] = useState('');
 
   const fetchDrivers = async () => {
     try {
       const { data } = await api.get('/admin/drivers');
       setDrivers(data || []);
+      setError('');
     } catch (err) {
       console.error('Failed to load drivers', err);
+      setError('Failed to load drivers. Check connection.');
     }
   };
 
@@ -90,21 +127,53 @@ export default function App() {
     try {
       const { data } = await api.get('/admin/locations');
       setLocations(data || []);
+      setLastUpdate(new Date());
+      setError('');
     } catch (err) {
       console.error('Failed to load locations', err);
+      setError('Failed to load locations. Retrying...');
     }
   };
 
   useEffect(() => {
     if (!isAuthed) return;
+
+    // Initial load
     setLoading(true);
     Promise.all([fetchDrivers(), fetchLocations()]).finally(() => setLoading(false));
-    const timer = setInterval(fetchLocations, 10000);
-    return () => clearInterval(timer);
+
+    // Polling interval - refresh every 10 seconds
+    const intervalId = setInterval(() => {
+      fetchLocations();
+    }, 10000);
+
+    // Handle page visibility - pause when tab is hidden, resume when visible
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab is hidden, but keep interval running (just slower)
+        // Or clear it if you want to pause completely
+      } else {
+        // Tab is visible, refresh immediately
+        fetchLocations();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [isAuthed]);
 
   const handleLoginSuccess = () => {
     navigate('/');
+  };
+
+  const handleRefresh = () => {
+    fetchLocations();
+    fetchDrivers();
   };
 
   const latestByDriver = useMemo(() => {
@@ -124,7 +193,15 @@ export default function App() {
               <Routes>
                 <Route
                   path="/"
-                  element={<DashboardPage drivers={drivers} locations={latestByDriver} />}
+                  element={
+                    <DashboardPage
+                      drivers={drivers}
+                      locations={latestByDriver}
+                      onRefresh={handleRefresh}
+                      lastUpdate={lastUpdate}
+                      error={error}
+                    />
+                  }
                 />
                 <Route
                   path="/drivers"
@@ -132,7 +209,17 @@ export default function App() {
                     <DriversPage drivers={drivers} refreshDrivers={fetchDrivers} />
                   }
                 />
-                <Route path="/map" element={<MapPage locations={latestByDriver} />} />
+                <Route
+                  path="/map"
+                  element={
+                    <MapPage
+                      locations={latestByDriver}
+                      onRefresh={handleRefresh}
+                      lastUpdate={lastUpdate}
+                      error={error}
+                    />
+                  }
+                />
               </Routes>
             </Layout>
           </ProtectedRoute>
