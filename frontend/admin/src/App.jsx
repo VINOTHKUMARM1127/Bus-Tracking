@@ -15,7 +15,15 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-const DashboardPage = ({ drivers, locations, onRefresh, lastUpdate, error }) => {
+const DashboardPage = ({
+  drivers,
+  locations,
+  onRefresh,
+  lastUpdate,
+  error,
+  loading,
+  refreshDrivers
+}) => {
   const activeDrivers = drivers.filter((d) => d.isActive).length;
   return (
     <div className="space-y-6">
@@ -46,12 +54,16 @@ const DashboardPage = ({ drivers, locations, onRefresh, lastUpdate, error }) => 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="bg-white shadow rounded-lg p-4">
           <h3 className="font-semibold mb-4">Drivers</h3>
-          <DriverList drivers={drivers} />
+          <DriverList drivers={drivers} loading={loading} onUpdate={refreshDrivers} />
         </div>
         <div className="bg-white shadow rounded-lg p-4">
           <h3 className="font-semibold mb-4">Live Map</h3>
           <div className="h-[420px]">
-            <MapView locations={locations} />
+            {loading ? (
+              <div className="h-full w-full bg-gray-100 rounded animate-pulse" />
+            ) : (
+              <MapView locations={locations} />
+            )}
           </div>
         </div>
       </div>
@@ -59,7 +71,7 @@ const DashboardPage = ({ drivers, locations, onRefresh, lastUpdate, error }) => 
   );
 };
 
-const DriversPage = ({ drivers, refreshDrivers }) => {
+const DriversPage = ({ drivers, refreshDrivers, loading }) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="bg-white shadow rounded-lg p-4">
@@ -68,13 +80,13 @@ const DriversPage = ({ drivers, refreshDrivers }) => {
       </div>
       <div className="bg-white shadow rounded-lg p-4">
         <h3 className="font-semibold mb-4">All Drivers</h3>
-        <DriverList drivers={drivers} onUpdate={refreshDrivers} />
+        <DriverList drivers={drivers} onUpdate={refreshDrivers} loading={loading} />
       </div>
     </div>
   );
 };
 
-const MapPage = ({ locations, onRefresh, lastUpdate, error }) => (
+const MapPage = ({ locations, onRefresh, lastUpdate, error, loading }) => (
   <div className="bg-white shadow rounded-lg p-4">
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
       <div>
@@ -98,7 +110,11 @@ const MapPage = ({ locations, onRefresh, lastUpdate, error }) => (
       </div>
     </div>
     <div className="h-[520px]">
-      <MapView locations={locations} />
+      {loading ? (
+        <div className="h-full w-full bg-gray-100 rounded animate-pulse" />
+      ) : (
+        <MapView locations={locations} />
+      )}
     </div>
   </div>
 );
@@ -176,11 +192,29 @@ export default function App() {
     fetchDrivers();
   };
 
-  const latestByDriver = useMemo(() => {
+  const latestByDriverAll = useMemo(() => {
     const map = new Map();
-    locations.forEach((loc) => map.set(loc.driver, loc));
+    locations.forEach((loc) => {
+      const existing = map.get(loc.driver);
+      if (!existing || new Date(loc.updatedAt) > new Date(existing.updatedAt)) {
+        map.set(loc.driver, loc);
+      }
+    });
     return Array.from(map.values());
   }, [locations]);
+
+  const latestByDriverActive = useMemo(
+    () => latestByDriverAll.filter((loc) => loc.isTracking),
+    [latestByDriverAll]
+  );
+
+  const liveStatusByDriver = useMemo(() => {
+    const map = new Map();
+    latestByDriverAll.forEach((loc) => {
+      map.set(loc.driver, { isTracking: loc.isTracking, updatedAt: loc.updatedAt });
+    });
+    return map;
+  }, [latestByDriverAll]);
 
   return (
     <Routes>
@@ -196,27 +230,35 @@ export default function App() {
                   element={
                     <DashboardPage
                       drivers={drivers}
-                      locations={latestByDriver}
+                      locations={latestByDriverActive}
                       onRefresh={handleRefresh}
                       lastUpdate={lastUpdate}
                       error={error}
+                      loading={loading}
+                      refreshDrivers={fetchDrivers}
                     />
                   }
                 />
                 <Route
                   path="/drivers"
                   element={
-                    <DriversPage drivers={drivers} refreshDrivers={fetchDrivers} />
+                    <DriversPage
+                      drivers={drivers}
+                      refreshDrivers={fetchDrivers}
+                      loading={loading}
+                      liveStatusByDriver={liveStatusByDriver}
+                    />
                   }
                 />
                 <Route
                   path="/map"
                   element={
                     <MapPage
-                      locations={latestByDriver}
+                      locations={latestByDriverActive}
                       onRefresh={handleRefresh}
                       lastUpdate={lastUpdate}
                       error={error}
+                      loading={loading}
                     />
                   }
                 />

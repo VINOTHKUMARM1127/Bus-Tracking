@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { api } from '../api.js';
 
-export default function DriverList({ drivers, onUpdate }) {
+export default function DriverList({
+  drivers,
+  onUpdate,
+  loading = false,
+  liveStatusByDriver
+}) {
   const [busyId, setBusyId] = useState(null);
   const [message, setMessage] = useState('');
 
@@ -14,19 +19,6 @@ export default function DriverList({ drivers, onUpdate }) {
       onUpdate?.();
     } catch (err) {
       setMessage(err.response?.data?.message || 'Update failed');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const toggleStatus = async (driverId, isActive) => {
-    setBusyId(driverId);
-    setMessage('');
-    try {
-      await api.patch(`/admin/drivers/${driverId}/status`, { isActive });
-      onUpdate?.();
-    } catch (err) {
-      setMessage(err.response?.data?.message || 'Status update failed');
     } finally {
       setBusyId(null);
     }
@@ -63,6 +55,16 @@ export default function DriverList({ drivers, onUpdate }) {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-16 bg-gray-100 rounded animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
   if (!drivers.length) {
     return <p className="text-sm text-gray-600">No drivers yet.</p>;
   }
@@ -75,20 +77,28 @@ export default function DriverList({ drivers, onUpdate }) {
       <div className="grid gap-3 sm:hidden">
         {drivers.map((driver) => (
           <div key={driver._id || driver.id} className="border rounded p-3 space-y-3 bg-white">
-            <div className="flex justify-between">
-              <div>
-                <div className="font-semibold text-gray-800">{driver.username}</div>
-                <div className="text-xs text-gray-500">
-                  Status:{' '}
-                  <span
-                    className={`px-2 py-1 rounded text-[11px] ${
-                      driver.isActive
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    {driver.isActive ? 'Active' : 'Inactive'}
-                  </span>
+            <div className="flex justify-between gap-3">
+              <div className="space-y-1">
+                <div className="font-semibold text-gray-800 break-words">
+                  {driver.username}
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                  {liveStatusByDriver?.get(driver._id || driver.id) && (
+                    <span>
+                      Live:{' '}
+                      <span
+                        className={`px-2 py-1 rounded text-[11px] ${
+                          liveStatusByDriver.get(driver._id || driver.id).isTracking
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-orange-100 text-orange-800'
+                        }`}
+                      >
+                        {liveStatusByDriver.get(driver._id || driver.id).isTracking
+                          ? 'Tracking'
+                          : 'Stopped'}
+                      </span>
+                    </span>
+                  )}
                 </div>
               </div>
               <input
@@ -106,13 +116,7 @@ export default function DriverList({ drivers, onUpdate }) {
               >
                 Change Password
               </button>
-              <button
-                className="text-xs px-3 py-1 rounded bg-indigo-100 text-indigo-800 hover:bg-indigo-200"
-                onClick={() => toggleStatus(driver._id || driver.id, !driver.isActive)}
-                disabled={busyId === (driver._id || driver.id)}
-              >
-                {driver.isActive ? 'Disable' : 'Enable'}
-              </button>
+              {/* View action removed */}
               <button
                 className="text-xs px-3 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200"
                 onClick={() =>
@@ -133,8 +137,8 @@ export default function DriverList({ drivers, onUpdate }) {
           <thead className="bg-gray-50">
             <tr>
               <th className="text-left px-3 py-2">Username</th>
+              <th className="text-left px-3 py-2">Live</th>
               <th className="text-left px-3 py-2">Bus</th>
-              <th className="text-left px-3 py-2">Status</th>
               <th className="text-right px-3 py-2">Actions</th>
             </tr>
           </thead>
@@ -145,6 +149,23 @@ export default function DriverList({ drivers, onUpdate }) {
                   {driver.username}
                 </td>
                 <td className="px-3 py-2">
+                  {liveStatusByDriver?.get(driver._id || driver.id) ? (
+                    <span
+                      className={`px-2 py-1 rounded text-xs ${
+                        liveStatusByDriver.get(driver._id || driver.id).isTracking
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-orange-100 text-orange-800'
+                      }`}
+                    >
+                      {liveStatusByDriver.get(driver._id || driver.id).isTracking
+                        ? 'Tracking'
+                        : 'Stopped'}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-500">No data</span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
                   <input
                     defaultValue={driver.busNumber || ''}
                     onBlur={(e) => updateBus(driver._id || driver.id, e.target.value)}
@@ -152,18 +173,8 @@ export default function DriverList({ drivers, onUpdate }) {
                     placeholder="Bus #"
                   />
                 </td>
-                <td className="px-3 py-2">
-                  <span
-                    className={`px-2 py-1 rounded text-xs ${
-                      driver.isActive
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    {driver.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-right space-x-2">
+                <td className="px-3 py-2 text-right">
+                  <div className="flex justify-end flex-wrap gap-2">
                   <button
                     className="text-xs px-3 py-1 rounded bg-gray-100 text-gray-800 hover:bg-gray-200"
                     onClick={() => changePassword(driver._id || driver.id)}
@@ -171,13 +182,7 @@ export default function DriverList({ drivers, onUpdate }) {
                   >
                     Change Password
                   </button>
-                  <button
-                    className="text-xs px-3 py-1 rounded bg-indigo-100 text-indigo-800 hover:bg-indigo-200"
-                    onClick={() => toggleStatus(driver._id || driver.id, !driver.isActive)}
-                    disabled={busyId === (driver._id || driver.id)}
-                  >
-                    {driver.isActive ? 'Disable' : 'Enable'}
-                  </button>
+                  {/* View action removed */}
                   <button
                     className="text-xs px-3 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200"
                     onClick={() =>
@@ -187,6 +192,7 @@ export default function DriverList({ drivers, onUpdate }) {
                   >
                     Delete
                   </button>
+                  </div>
                 </td>
               </tr>
             ))}

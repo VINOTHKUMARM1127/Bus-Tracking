@@ -20,8 +20,11 @@ export const authenticate = async (req, res, next) => {
     }
 
     const user = await User.findById(decoded.userId);
-    if (!user || !user.isActive) {
+    if (!user) {
       return res.status(401).json({ message: 'Invalid user' });
+    }
+    if (!user.isActive) {
+      return res.status(401).json({ message: 'Account disabled by admin' });
     }
 
     req.user = user;
