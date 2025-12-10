@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -48,9 +48,13 @@ export default function MapView({ locations }) {
       <MapUpdater locations={locations} />
       {(locations || []).map((loc) => (
         <Marker key={loc._id || `${loc.lat}-${loc.lng}`} position={[loc.lat, loc.lng]}>
+          <Tooltip direction="top" offset={[0, -10]} opacity={0.9} permanent>
+            {loc.username || loc.busNumber || 'Driver'}
+          </Tooltip>
           <Popup>
             <div className="text-sm">
               <div className="font-semibold">{loc.busNumber || 'Unassigned'}</div>
+              {loc.username && <div>User: {loc.username}</div>}
               <div>Lat: {loc.lat.toFixed(4)}</div>
               <div>Lng: {loc.lng.toFixed(4)}</div>
               <div>Status: {loc.isTracking ? 'Tracking' : 'Stopped'}</div>

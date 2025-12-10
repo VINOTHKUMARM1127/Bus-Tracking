@@ -5,7 +5,27 @@ export const getLatestLocations = async (_req, res) => {
   const latest = await DriverLocation.aggregate([
     { $sort: { updatedAt: -1 } },
     { $group: { _id: '$driver', doc: { $first: '$$ROOT' } } },
-    { $replaceRoot: { newRoot: '$doc' } }
+    { $replaceRoot: { newRoot: '$doc' } },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'driver',
+        foreignField: '_id',
+        as: 'user'
+      }
+    },
+    { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+    {
+      $addFields: {
+        username: '$user.username',
+        busNumber: { $ifNull: ['$busNumber', '$user.busNumber'] }
+      }
+    },
+    {
+      $project: {
+        user: 0
+      }
+    }
   ]);
   res.json(latest);
 };
@@ -23,5 +43,6 @@ export const getDriverLocation = async (req, res) => {
 
   res.json({ latest: history[0], history });
 };
+
 
 

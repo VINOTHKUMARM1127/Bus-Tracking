@@ -19,3 +19,4 @@ DriverLocationSchema.index({ driver: 1, updatedAt: -1 });
 export const DriverLocation = mongoose.model('DriverLocation', DriverLocationSchema);
 
 
+
