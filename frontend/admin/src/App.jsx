@@ -21,15 +21,12 @@ const DashboardPage = ({
   onRefresh,
   lastUpdate,
   error,
-  loading,
-  refreshDrivers
+  loading
 }) => {
-  const activeDrivers = drivers.filter((d) => d.isActive).length;
   return (
     <div className="space-y-6">
       <DashboardStats
         totalDrivers={drivers.length}
-        activeDrivers={activeDrivers}
         trackedBuses={locations.length}
       />
       {(error || lastUpdate) && (
@@ -54,7 +51,7 @@ const DashboardPage = ({
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="bg-white shadow rounded-lg p-4">
           <h3 className="font-semibold mb-4">Drivers</h3>
-          <DriverList drivers={drivers} loading={loading} onUpdate={refreshDrivers} />
+          <DriverList drivers={drivers} loading={loading} readOnly />
         </div>
         <div className="bg-white shadow rounded-lg p-4">
           <h3 className="font-semibold mb-4">Live Map</h3>
@@ -71,16 +68,53 @@ const DashboardPage = ({
   );
 };
 
-const DriversPage = ({ drivers, refreshDrivers, loading }) => {
+const DriversListPage = ({ drivers, refreshDrivers, loading }) => {
+  const navigate = useNavigate();
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="bg-white shadow rounded-lg p-4">
-        <h3 className="font-semibold mb-4">Create Driver</h3>
-        <DriverForm onCreated={refreshDrivers} />
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-lg text-gray-800">Drivers</h3>
+          <p className="text-sm text-gray-500">Manage all drivers</p>
+        </div>
+        <button
+          className="text-sm px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700"
+          onClick={() => navigate('/drivers/new')}
+        >
+          Create Driver
+        </button>
       </div>
       <div className="bg-white shadow rounded-lg p-4">
         <h3 className="font-semibold mb-4">All Drivers</h3>
         <DriverList drivers={drivers} onUpdate={refreshDrivers} loading={loading} />
+      </div>
+    </div>
+  );
+};
+
+const DriverCreatePage = ({ refreshDrivers }) => {
+  const navigate = useNavigate();
+  const handleCreated = () => {
+    refreshDrivers?.();
+    navigate('/drivers');
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-lg text-gray-800">Create Driver</h3>
+          <p className="text-sm text-gray-500">Add a new driver account</p>
+        </div>
+        <button
+          className="text-sm px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300"
+          onClick={() => navigate('/drivers')}
+        >
+          Back to list
+        </button>
+      </div>
+      <div className="bg-white shadow rounded-lg p-4">
+        <DriverForm onCreated={handleCreated} />
       </div>
     </div>
   );
@@ -235,20 +269,23 @@ export default function App() {
                       lastUpdate={lastUpdate}
                       error={error}
                       loading={loading}
-                      refreshDrivers={fetchDrivers}
                     />
                   }
                 />
                 <Route
                   path="/drivers"
                   element={
-                    <DriversPage
+                    <DriversListPage
                       drivers={drivers}
                       refreshDrivers={fetchDrivers}
                       loading={loading}
                       liveStatusByDriver={liveStatusByDriver}
                     />
                   }
+                />
+                <Route
+                  path="/drivers/new"
+                  element={<DriverCreatePage refreshDrivers={fetchDrivers} />}
                 />
                 <Route
                   path="/map"

@@ -5,12 +5,14 @@ export default function DriverList({
   drivers,
   onUpdate,
   loading = false,
-  liveStatusByDriver
+  liveStatusByDriver,
+  readOnly = false
 }) {
   const [busyId, setBusyId] = useState(null);
   const [message, setMessage] = useState('');
 
   const updateBus = async (driverId, busNumber) => {
+    if (readOnly) return;
     setBusyId(driverId);
     setMessage('');
     try {
@@ -71,7 +73,7 @@ export default function DriverList({
 
   return (
     <div className="space-y-3">
-      {message && <div className="text-sm text-gray-700">{message}</div>}
+      {!readOnly && message && <div className="text-sm text-gray-700">{message}</div>}
 
       {/* Mobile cards */}
       <div className="grid gap-3 sm:hidden">
@@ -103,30 +105,36 @@ export default function DriverList({
               </div>
               <input
                 defaultValue={driver.busNumber || ''}
-                onBlur={(e) => updateBus(driver._id || driver.id, e.target.value)}
-                className="border rounded px-2 py-1 w-28 text-sm"
+                onBlur={
+                  readOnly ? undefined : (e) => updateBus(driver._id || driver.id, e.target.value)
+                }
+                className={`border rounded px-2 py-1 w-28 text-sm ${
+                  readOnly ? 'bg-gray-100 cursor-not-allowed' : ''
+                }`}
                 placeholder="Bus #"
+                disabled={readOnly}
               />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                className="text-xs px-3 py-1 rounded bg-gray-100 text-gray-800 hover:bg-gray-200"
-                onClick={() => changePassword(driver._id || driver.id)}
-                disabled={busyId === (driver._id || driver.id)}
-              >
-                Change Password
-              </button>
-              {/* View action removed */}
-              <button
-                className="text-xs px-3 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200"
-                onClick={() =>
-                  deleteDriver(driver._id || driver.id, driver.username || 'driver')
-                }
-                disabled={busyId === (driver._id || driver.id)}
-              >
-                Delete
-              </button>
-            </div>
+            {!readOnly && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="text-xs px-3 py-1 rounded bg-gray-100 text-gray-800 hover:bg-gray-200"
+                  onClick={() => changePassword(driver._id || driver.id)}
+                  disabled={busyId === (driver._id || driver.id)}
+                >
+                  Change Password
+                </button>
+                <button
+                  className="text-xs px-3 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200"
+                  onClick={() =>
+                    deleteDriver(driver._id || driver.id, driver.username || 'driver')
+                  }
+                  disabled={busyId === (driver._id || driver.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -139,7 +147,7 @@ export default function DriverList({
               <th className="text-left px-3 py-2">Username</th>
               <th className="text-left px-3 py-2">Live</th>
               <th className="text-left px-3 py-2">Bus</th>
-              <th className="text-right px-3 py-2">Actions</th>
+              {!readOnly && <th className="text-right px-3 py-2">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -168,32 +176,40 @@ export default function DriverList({
                 <td className="px-3 py-2">
                   <input
                     defaultValue={driver.busNumber || ''}
-                    onBlur={(e) => updateBus(driver._id || driver.id, e.target.value)}
-                    className="border rounded px-2 py-1 w-32"
+                    onBlur={
+                      readOnly
+                        ? undefined
+                        : (e) => updateBus(driver._id || driver.id, e.target.value)
+                    }
+                    className={`border rounded px-2 py-1 w-32 ${
+                      readOnly ? 'bg-gray-100 cursor-not-allowed' : ''
+                    }`}
                     placeholder="Bus #"
+                    disabled={readOnly}
                   />
                 </td>
-                <td className="px-3 py-2 text-right">
-                  <div className="flex justify-end flex-wrap gap-2">
-                  <button
-                    className="text-xs px-3 py-1 rounded bg-gray-100 text-gray-800 hover:bg-gray-200"
-                    onClick={() => changePassword(driver._id || driver.id)}
-                    disabled={busyId === (driver._id || driver.id)}
-                  >
-                    Change Password
-                  </button>
-                  {/* View action removed */}
-                  <button
-                    className="text-xs px-3 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200"
-                    onClick={() =>
-                      deleteDriver(driver._id || driver.id, driver.username || 'driver')
-                    }
-                    disabled={busyId === (driver._id || driver.id)}
-                  >
-                    Delete
-                  </button>
-                  </div>
-                </td>
+                {!readOnly && (
+                  <td className="px-3 py-2 text-right">
+                    <div className="flex justify-end flex-wrap gap-2">
+                      <button
+                        className="text-xs px-3 py-1 rounded bg-gray-100 text-gray-800 hover:bg-gray-200"
+                        onClick={() => changePassword(driver._id || driver.id)}
+                        disabled={busyId === (driver._id || driver.id)}
+                      >
+                        Change Password
+                      </button>
+                      <button
+                        className="text-xs px-3 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200"
+                        onClick={() =>
+                          deleteDriver(driver._id || driver.id, driver.username || 'driver')
+                        }
+                        disabled={busyId === (driver._id || driver.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

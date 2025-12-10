@@ -5,11 +5,10 @@ const Stat = ({ label, value, color }) => (
   </div>
 );
 
-export default function DashboardStats({ totalDrivers, activeDrivers, trackedBuses }) {
+export default function DashboardStats({ totalDrivers, trackedBuses }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <Stat label="Drivers" value={totalDrivers} color="text-indigo-600" />
-      <Stat label="Active Drivers" value={activeDrivers} color="text-green-600" />
       <Stat label="Live Buses" value={trackedBuses} color="text-orange-600" />
     </div>
   );
