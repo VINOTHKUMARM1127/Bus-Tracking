@@ -76,3 +76,4 @@ npm run dev -- --host --port 5174
 - Live map polls `/api/admin/locations` every 10s.
 - Ensure HTTPS + correct CORS origins in production.
 
+
