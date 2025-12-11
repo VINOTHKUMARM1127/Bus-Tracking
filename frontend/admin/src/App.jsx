@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth.jsx';
+import { useSocket } from './hooks/useSocket.js';
 import { api } from './api.js';
 import Layout from './components/Layout.jsx';
 import LoginForm from './components/LoginForm.jsx';
@@ -8,6 +9,12 @@ import DriverForm from './components/DriverForm.jsx';
 import DriverList from './components/DriverList.jsx';
 import MapView from './components/MapView.jsx';
 import DashboardStats from './components/DashboardStats.jsx';
+import RouteList from './pages/Routes/RouteList.jsx';
+import RouteEditor from './pages/Routes/RouteEditor.jsx';
+import AssignDriverModal from './pages/Routes/AssignDriverModal.jsx';
+import TripHistory from './pages/Trips/TripHistory.jsx';
+import AnalyticsDashboard from './pages/Analytics/AnalyticsDashboard.jsx';
+import AlertsPage from './pages/Alerts/AlertsPage.jsx';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthed } = useAuth();
@@ -161,6 +168,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [error, setError] = useState('');
+  const { socket, connected, on, off } = useSocket(isAuthed);
 
   const fetchDrivers = async () => {
     try {
@@ -192,18 +200,42 @@ export default function App() {
     setLoading(true);
     Promise.all([fetchDrivers(), fetchLocations()]).finally(() => setLoading(false));
 
-    // Polling interval - refresh every 10 seconds
+    // Socket.io real-time updates
+    if (socket && connected) {
+      on('location:update', (location) => {
+        setLocations((prev) => {
+          const index = prev.findIndex((l) => l.driver?.toString() === location.driver?.toString());
+          if (index >= 0) {
+            const updated = [...prev];
+            updated[index] = location;
+            return updated;
+          }
+          return [...prev, location];
+        });
+        setLastUpdate(new Date());
+      });
+
+      on('trip:update', (data) => {
+        // Refresh trips if needed
+        console.log('Trip update:', data);
+      });
+
+      on('alert:new', (alert) => {
+        // Show notification or update alerts list
+        console.log('New alert:', alert);
+      });
+    }
+
+    // Polling interval - fallback if socket not connected
     const intervalId = setInterval(() => {
-      fetchLocations();
+      if (!connected) {
+        fetchLocations();
+      }
     }, 10000);
 
-    // Handle page visibility - pause when tab is hidden, resume when visible
+    // Handle page visibility
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        // Tab is hidden, but keep interval running (just slower)
-        // Or clear it if you want to pause completely
-      } else {
-        // Tab is visible, refresh immediately
+      if (!document.hidden && !connected) {
         fetchLocations();
       }
     };
@@ -214,8 +246,13 @@ export default function App() {
     return () => {
       clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (socket) {
+        off('location:update');
+        off('trip:update');
+        off('alert:new');
+      }
     };
-  }, [isAuthed]);
+  }, [isAuthed, socket, connected, on, off]);
 
   const handleLoginSuccess = () => {
     navigate('/');
@@ -299,12 +336,53 @@ export default function App() {
                     />
                   }
                 />
+                <Route path="/routes" element={<RouteList />} />
+                <Route path="/routes/new" element={<RouteEditor />} />
+                <Route path="/routes/:id/edit" element={<RouteEditor />} />
+                <Route path="/routes/:id/assign" element={<AssignDriverRoute />} />
+                <Route path="/trips" element={<TripHistory />} />
+                <Route path="/trips/:id" element={<TripDetails />} />
+                <Route path="/analytics" element={<AnalyticsDashboard />} />
+                <Route path="/alerts" element={<AlertsPage />} />
               </Routes>
             </Layout>
           </ProtectedRoute>
         }
       />
     </Routes>
+  );
+}
+
+// Helper component for assign driver route
+function AssignDriverRoute() {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const [showModal, setShowModal] = useState(true);
+
+  return showModal ? (
+    <AssignDriverModal
+      routeId={id}
+      onClose={() => {
+        setShowModal(false);
+        navigate('/routes');
+      }}
+      onSuccess={() => {
+        setShowModal(false);
+        navigate('/routes');
+      }}
+    />
+  ) : null;
+}
+
+// Placeholder for trip details
+function TripDetails() {
+  const { id } = useParams();
+  return (
+    <div className="space-y-4">
+      <h3 className="font-semibold text-lg">Trip Details</h3>
+      <p className="text-gray-600">Trip ID: {id}</p>
+      <p className="text-sm text-gray-500">Full trip details view - TODO: Implement</p>
+    </div>
   );
 }
 

@@ -11,7 +11,8 @@ const UserSchema = new mongoose.Schema(
     passwordHash: { type: String, required: true },
     role: { type: String, enum: Object.values(USER_ROLES), required: true },
     busNumber: { type: String },
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: true },
+    assignedRoute: { type: mongoose.Schema.Types.ObjectId, ref: 'Route' }
   },
   { timestamps: true }
 );

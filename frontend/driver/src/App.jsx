@@ -119,7 +119,10 @@ export default function App() {
       heading: coords.heading || 0,
       accuracy: coords.accuracy || 0
     };
-    await api.post('/driver/location', payload);
+    
+    // Use offline queue for reliability
+    const { offlineQueue } = await import('./utils/offlineQueue.js');
+    await offlineQueue.addLocation(payload);
   };
 
   const requestPosition = () =>

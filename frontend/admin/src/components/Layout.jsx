@@ -30,6 +30,10 @@ export default function Layout({ children, loading }) {
           <nav className="flex flex-wrap items-center gap-2">
             <NavLink to="/" label="Dashboard" />
             <NavLink to="/drivers" label="Drivers" />
+            <NavLink to="/routes" label="Routes" />
+            <NavLink to="/trips" label="Trips" />
+            <NavLink to="/analytics" label="Analytics" />
+            <NavLink to="/alerts" label="Alerts" />
             <NavLink to="/map" label="Map" />
           </nav>
           <div className="flex items-center gap-3 sm:self-end">
