@@ -12,7 +12,6 @@ import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { api, setAuthToken } from '@/utils/api';
 import { storage } from '@/utils/storage';
-import { offlineQueue } from '@/utils/offlineQueue';
 
 interface User {
   username: string;
@@ -27,93 +26,16 @@ export default function DriverTrackingScreen() {
   const [error, setError] = useState('');
   const [tracking, setTracking] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [currentTrip, setCurrentTrip] = useState<any>(null);
-  const [queuedCount, setQueuedCount] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     loadUser();
-    
-    // Check for queued locations
-    const checkQueue = async () => {
-      const count = await offlineQueue.getQueueSize();
-      setQueuedCount(count);
-      if (count > 0) {
-        await offlineQueue.syncQueue();
-        const newCount = await offlineQueue.getQueueSize();
-        setQueuedCount(newCount);
-      }
-    };
-    
-    checkQueue();
-    const queueInterval = setInterval(checkQueue, 30000); // Check every 30s
-    
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-      clearInterval(queueInterval);
     };
   }, []);
-
-  const checkTrackingStatus = async () => {
-    try {
-      const { data } = await api.get('/driver/status');
-      if (data.isTracking) {
-        // Server says tracking is active, sync local state
-        // Check if we have location permission before starting interval
-        const hasPermission = await requestLocationPermission();
-        
-        if (hasPermission) {
-          setTracking(true);
-          setStatus('Tracking is active. Sending every 10s');
-          
-          // Send current location immediately
-          try {
-            const location = await Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.High,
-            });
-            await sendLocation(location);
-          } catch (err) {
-            console.error('Failed to send initial location:', err);
-          }
-          
-          // Restart the location sending interval
-          timerRef.current = setInterval(async () => {
-            try {
-              const currentLocation = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.High,
-              });
-              await sendLocation(currentLocation);
-            } catch (err) {
-              console.error('Location send failed', err);
-              setError('Failed to send location');
-            }
-          }, 10000);
-        } else {
-          // Permission not granted, stop tracking on server
-          setTracking(false);
-          try {
-            await api.post('/driver/location/stop');
-          } catch (err) {
-            console.error('Failed to stop tracking on server:', err);
-          }
-          setError('Location permission required. Please enable location access.');
-        }
-      } else {
-        // Server says tracking is inactive
-        setTracking(false);
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-      }
-    } catch (err) {
-      console.error('Failed to check tracking status:', err);
-      // If status check fails, assume inactive
-      setTracking(false);
-    }
-  };
 
   const loadUser = async () => {
     try {
@@ -127,12 +49,6 @@ export default function DriverTrackingScreen() {
 
       setAuthToken(token);
       setUser(userData);
-      
-      // Check server tracking status and sync
-      await checkTrackingStatus();
-      
-      // Check for ongoing trip
-      await checkOngoingTrip();
     } catch (err) {
       console.error('Failed to load user:', err);
       router.replace('/driver/login');
@@ -160,13 +76,7 @@ export default function DriverTrackingScreen() {
       heading: coords.coords.heading || 0,
       accuracy: coords.coords.accuracy || 0,
     };
-    
-    // Try to send, fallback to offline queue
-    const sent = await offlineQueue.addLocation(payload);
-    if (!sent) {
-      // Queued for later sync
-      console.log('Location queued for offline sync');
-    }
+    await api.post('/driver/location', payload);
   };
 
   const startTracking = async () => {
@@ -223,58 +133,6 @@ export default function DriverTrackingScreen() {
     } catch (err) {
       console.error('Stop tracking failed', err);
     }
-  };
-
-  const checkOngoingTrip = async () => {
-    if (!user) return;
-    try {
-      const { data } = await api.get('/trips/driver/ongoing');
-      if (data) {
-        setCurrentTrip(data);
-      }
-    } catch (err) {
-      console.error('Failed to check ongoing trip:', err);
-    }
-  };
-
-  const handleStartTrip = async () => {
-    // TODO: Show route selection modal
-    // For now, show message - in production, fetch routes and show selection
-    Alert.alert(
-      'Start Trip',
-      'Route selection coming soon. Please assign a route in admin panel first, then the trip will start automatically when you begin tracking.',
-      [{ text: 'OK' }]
-    );
-    
-    // Future implementation:
-    // 1. Fetch available routes: GET /api/routes?assignedDriver=USER_ID
-    // 2. Show route selection modal
-    // 3. Start trip with selected route
-  };
-
-  const handleEndTrip = async () => {
-    if (!currentTrip) return;
-    
-    Alert.alert(
-      'End Trip',
-      'Are you sure you want to end this trip?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'End Trip',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await api.post(`/trips/driver/${currentTrip._id}/end`);
-              setCurrentTrip(null);
-              setStatus('Trip ended successfully');
-            } catch (err: any) {
-              setError(err.response?.data?.message || 'Failed to end trip');
-            }
-          }
-        }
-      ]
-    );
   };
 
   const handleLogout = async () => {
@@ -359,40 +217,7 @@ export default function DriverTrackingScreen() {
           {error ? (
             <Text style={styles.errorText}>{error}</Text>
           ) : null}
-
-          {queuedCount > 0 && (
-            <Text style={styles.warningText}>
-              {queuedCount} location(s) queued for sync
-            </Text>
-          )}
         </View>
-
-        {/* Trip Management */}
-        {tracking && (
-          <View style={styles.tripCard}>
-            <Text style={styles.tripTitle}>Trip Management</Text>
-            {!currentTrip ? (
-              <Pressable
-                style={[styles.button, styles.startButton]}
-                onPress={handleStartTrip}
-              >
-                <Text style={styles.buttonText}>Start Trip</Text>
-              </Pressable>
-            ) : (
-              <View>
-                <Text style={styles.tripStatus}>
-                  Trip Active
-                </Text>
-                <Pressable
-                  style={[styles.button, styles.stopButton]}
-                  onPress={handleEndTrip}
-                >
-                  <Text style={styles.buttonText}>End Trip</Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-        )}
 
         <View style={styles.noteContainer}>
           <Text style={styles.noteText}>
@@ -521,30 +346,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     textAlign: 'center',
-  },
-  tripCard: {
-    padding: 16,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
-    marginBottom: 16,
-  },
-  tripTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 12,
-  },
-  tripStatus: {
-    fontSize: 14,
-    color: '#374151',
-    marginBottom: 12,
-  },
-  warningText: {
-    fontSize: 14,
-    color: '#f59e0b',
-    marginTop: 8,
   },
 });
 

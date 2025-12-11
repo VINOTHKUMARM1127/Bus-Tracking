@@ -29,63 +29,6 @@ export default function App() {
     }
   }, [user]);
 
-  // Check server tracking status on mount if user is logged in
-  useEffect(() => {
-    if (token && user) {
-      checkTrackingStatus();
-    }
-  }, [token, user]);
-
-  const checkTrackingStatus = async () => {
-    try {
-      const { data } = await api.get('/driver/status');
-      if (data.isTracking) {
-        // Server says tracking is active, sync local state
-        setTracking(true);
-        setStatus('Tracking is active. Sending every 10s');
-        
-        // Send current location immediately
-        try {
-          const coords = await requestPosition();
-          await sendLocation(coords);
-        } catch (err) {
-          console.error('Failed to send initial location:', err);
-          setError('Location permission required');
-          // If permission denied, stop tracking on server
-          try {
-            await api.post('/driver/location/stop');
-            setTracking(false);
-          } catch (stopErr) {
-            console.error('Failed to stop tracking on server:', stopErr);
-          }
-          return;
-        }
-        
-        // Restart the location sending interval
-        timerRef.current = setInterval(async () => {
-          try {
-            const c = await requestPosition();
-            await sendLocation(c);
-          } catch (err) {
-            console.error('Location send failed', err);
-            setError('Failed to send location');
-          }
-        }, 10000);
-      } else {
-        // Server says tracking is inactive
-        setTracking(false);
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-      }
-    } catch (err) {
-      console.error('Failed to check tracking status:', err);
-      // If status check fails, assume inactive
-      setTracking(false);
-    }
-  };
-
   const login = async (e) => {
     e.preventDefault();
     const form = new FormData(e.target);
@@ -119,10 +62,7 @@ export default function App() {
       heading: coords.heading || 0,
       accuracy: coords.accuracy || 0
     };
-    
-    // Use offline queue for reliability
-    const { offlineQueue } = await import('./utils/offlineQueue.js');
-    await offlineQueue.addLocation(payload);
+    await api.post('/driver/location', payload);
   };
 
   const requestPosition = () =>

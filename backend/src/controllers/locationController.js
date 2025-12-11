@@ -1,12 +1,6 @@
 import { DriverLocation } from '../models/DriverLocation.js';
 import { env } from '../config/env.js';
 
-// Socket.io instance (set from index.js)
-let io = null;
-export const setIO = (socketIO) => {
-  io = socketIO;
-};
-
 export const getLatestLocations = async (_req, res) => {
   const latest = await DriverLocation.aggregate([
     { $sort: { updatedAt: -1 } },

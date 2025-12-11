@@ -73,21 +73,7 @@ npm run dev -- --host --port 5174
 ## Notes
 - Admin consumes `/api/admin/*` and `/api/auth/login`.
 - Driver app sends locations to `/api/driver/location`.
-- Live map polls `/api/admin/locations` every 10s (or uses Socket.io for real-time).
+- Live map polls `/api/admin/locations` every 10s.
 - Ensure HTTPS + correct CORS origins in production.
-
-## New Features (See README_ENHANCEMENTS.md)
-
-This system now includes:
-- ✅ Route Management (CRUD, geofencing, driver assignment)
-- ✅ Trip Lifecycle (start/end, history, analytics)
-- ✅ Speed Monitoring & Alerts
-- ✅ Geofencing (out-of-route alerts)
-- ✅ Real-time tracking with Socket.io
-- ✅ Offline sync for driver apps
-- ✅ Analytics dashboard
-- ✅ Public API for student app
-
-See `README_ENHANCEMENTS.md` for complete documentation of new features.
 
 
