@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "myapp",
-    "slug": "myapp",
+    "name": "Bus Tracking Driver",
+    "slug": "bus-tracking-driver",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "bus-tracking-driver",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -26,8 +26,11 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
-      ]
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.vinoth_kumarm_27.bustrackingdriver"
     },
     "web": {
       "output": "static",
@@ -57,6 +60,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "91f80348-eaf3-4b38-b8fb-acb27c02fde7"
+      }
     }
   }
 }
