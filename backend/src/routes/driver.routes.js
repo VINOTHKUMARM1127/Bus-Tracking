@@ -41,6 +41,23 @@ router.post('/location/stop', async (req, res) => {
   return res.status(200).json({ message: 'Tracking stopped' });
 });
 
+// Get current tracking status for the logged-in driver
+router.get('/status', async (req, res) => {
+  const latest = await DriverLocation.findOne({ driver: req.user._id })
+    .sort({ updatedAt: -1 })
+    .lean();
+
+  if (!latest) {
+    return res.json({ isTracking: false, hasLocation: false });
+  }
+
+  return res.json({
+    isTracking: latest.isTracking || false,
+    hasLocation: true,
+    lastUpdate: latest.updatedAt
+  });
+});
+
 export default router;
 
 

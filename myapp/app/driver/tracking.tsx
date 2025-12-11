@@ -37,6 +37,65 @@ export default function DriverTrackingScreen() {
     };
   }, []);
 
+  const checkTrackingStatus = async () => {
+    try {
+      const { data } = await api.get('/driver/status');
+      if (data.isTracking) {
+        // Server says tracking is active, sync local state
+        // Check if we have location permission before starting interval
+        const hasPermission = await requestLocationPermission();
+        
+        if (hasPermission) {
+          setTracking(true);
+          setStatus('Tracking is active. Sending every 10s');
+          
+          // Send current location immediately
+          try {
+            const location = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.High,
+            });
+            await sendLocation(location);
+          } catch (err) {
+            console.error('Failed to send initial location:', err);
+          }
+          
+          // Restart the location sending interval
+          timerRef.current = setInterval(async () => {
+            try {
+              const currentLocation = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.High,
+              });
+              await sendLocation(currentLocation);
+            } catch (err) {
+              console.error('Location send failed', err);
+              setError('Failed to send location');
+            }
+          }, 10000);
+        } else {
+          // Permission not granted, stop tracking on server
+          setTracking(false);
+          try {
+            await api.post('/driver/location/stop');
+          } catch (err) {
+            console.error('Failed to stop tracking on server:', err);
+          }
+          setError('Location permission required. Please enable location access.');
+        }
+      } else {
+        // Server says tracking is inactive
+        setTracking(false);
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check tracking status:', err);
+      // If status check fails, assume inactive
+      setTracking(false);
+    }
+  };
+
   const loadUser = async () => {
     try {
       const token = await storage.getToken();
@@ -49,6 +108,9 @@ export default function DriverTrackingScreen() {
 
       setAuthToken(token);
       setUser(userData);
+      
+      // Check server tracking status and sync
+      await checkTrackingStatus();
     } catch (err) {
       console.error('Failed to load user:', err);
       router.replace('/driver/login');
