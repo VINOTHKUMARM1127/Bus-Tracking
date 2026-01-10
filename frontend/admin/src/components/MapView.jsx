@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
+import { LayerGroup, LayersControl, MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { api } from '../api.js';
@@ -61,15 +61,34 @@ export default function MapView({ locations }) {
     <MapContainer
       center={center}
       zoom={12}
-      className="h-full w-full rounded"
+      className="h-full w-full rounded-2xl z-0"
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      <LayersControl position="topleft">
+        <LayersControl.BaseLayer name="Street View">
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+        </LayersControl.BaseLayer>
+        <LayersControl.BaseLayer checked name="Satellite View">
+          <LayerGroup>
+            <TileLayer
+              attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            />
+            <TileLayer
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+            />
+          </LayerGroup>
+        </LayersControl.BaseLayer>
+      </LayersControl>
+
+      <MapUpdater locations={locations} />
+      {/* ... rest of the components */}
+
       <MapUpdater locations={locations} />
       {routeCoords.length > 1 && (
-        <Polyline positions={routeCoords} pathOptions={{ color: '#2563eb', weight: 4 }} />
+        <Polyline positions={routeCoords} pathOptions={{ color: '#8b5cf6', weight: 4, opacity: 0.7 }} />
       )}
       {(locations || []).map((loc) => (
         <Marker
@@ -79,34 +98,38 @@ export default function MapView({ locations }) {
             click: () => loadRoute(loc.driver, loc.username, loc.busNumber)
           }}
         >
-          <Tooltip direction="top" offset={[0, -10]} opacity={0.9} permanent>
+          <Tooltip direction="top" offset={[0, -10]} opacity={0.9} permanent className="glass-tooltip">
             {loc.username || loc.busNumber || 'Driver'}
           </Tooltip>
-          <Popup>
-            <div className="text-sm">
-              <div className="font-semibold">{loc.busNumber || 'Unassigned'}</div>
-              {loc.username && <div>User: {loc.username}</div>}
-              <div>Lat: {loc.lat.toFixed(4)}</div>
-              <div>Lng: {loc.lng.toFixed(4)}</div>
-              <div>Status: {loc.isTracking ? 'Tracking' : 'Stopped'}</div>
+          <Popup className="glass-popup">
+            <div className="text-sm space-y-1">
+              <div className="font-bold text-gray-800">{loc.busNumber || 'Unassigned'}</div>
+              {loc.username && <div className="text-gray-600">User: <span className="font-medium text-gray-800">{loc.username}</span></div>}
               <div className="text-xs text-gray-500">
-                Updated: {new Date(loc.updatedAt).toLocaleString()}
+                <span className={`inline-block w-2 H-2 rounded-full mr-1 ${loc.isTracking ? 'bg-green-500' : 'bg-orange-500'}`}></span>
+                {loc.isTracking ? 'Live Tracking' : 'Stopped'}
+              </div>
+              <div className="text-[10px] text-gray-400">
+                Updated: {new Date(loc.updatedAt).toLocaleTimeString()}
               </div>
             </div>
           </Popup>
         </Marker>
       ))}
       <div className="leaflet-top leaflet-right">
-        <div className="m-2 bg-white/90 backdrop-blur rounded shadow px-3 py-2 text-xs text-gray-800 space-y-1 min-w-[180px]">
-          <div className="font-semibold text-gray-700">Driver Route</div>
-          {routeLoading && <div className="text-gray-500">Loading route...</div>}
-          {!routeLoading && routeTitle && <div className="text-gray-700">{routeTitle}</div>}
-          {!routeLoading && routeError && <div className="text-red-600">{routeError}</div>}
+        <div className="m-4 bg-black/40 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl px-4 py-3 text-sm text-gray-200 space-y-2 min-w-[200px] transition-all">
+          <div className="font-bold text-white border-b border-white/10 pb-1">Driver Route</div>
+          {routeLoading && <div className="text-purple-300 animate-pulse">Loading route...</div>}
+          {!routeLoading && routeTitle && <div className="text-white font-medium">{routeTitle}</div>}
+          {!routeLoading && routeError && <div className="text-red-400 text-xs">{routeError}</div>}
           {!routeLoading && !routeError && routeCoords.length > 1 && (
-            <div className="text-gray-600">Points: {routeCoords.length}</div>
+            <div className="text-gray-300 text-xs flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+              {routeCoords.length} track points
+            </div>
           )}
           {!routeLoading && routeCoords.length <= 1 && !routeError && (
-            <div className="text-gray-500">Click a marker to load route</div>
+            <div className="text-gray-500 text-xs italic">Click a bus marker to view route history</div>
           )}
         </div>
       </div>
