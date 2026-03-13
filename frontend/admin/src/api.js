@@ -12,6 +12,13 @@ export const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
+
+    // Auto-attach token if available in localStorage
+    const token = localStorage.getItem('scbt_admin_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     return config;
   },
   (error) => {
@@ -30,6 +37,9 @@ api.interceptors.response.use(
       console.error('[API] Request timeout');
     } else if (error.response) {
       console.error(`[API] Error ${error.response.status}:`, error.response.data);
+      if (error.response.status === 401) {
+        window.dispatchEvent(new Event('scbt:unauthorized'));
+      }
     } else if (error.request) {
       console.error('[API] No response received:', error.request);
     } else {

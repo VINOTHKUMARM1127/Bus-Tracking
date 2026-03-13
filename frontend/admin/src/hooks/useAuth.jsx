@@ -32,6 +32,15 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user]);
 
+  // Listen for unauthorized events to trigger logout
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+    };
+    window.addEventListener('scbt:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('scbt:unauthorized', handleUnauthorized);
+  }, []);
+
   const login = async (username, password) => {
     setLoading(true);
     try {
@@ -53,6 +62,8 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setToken(null);
     setAuthToken(null);
+    localStorage.removeItem('scbt_admin_user');
+    localStorage.removeItem('scbt_admin_token');
   };
 
   return (
